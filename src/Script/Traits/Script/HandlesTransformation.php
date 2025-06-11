@@ -2,8 +2,6 @@
 namespace Cognesy\Template\Script\Traits\Script;
 
 use Cognesy\Template\Script\Script;
-use Cognesy\Template\Script\Section;
-use Cognesy\Utils\Messages\Message;
 
 trait HandlesTransformation
 {
@@ -36,22 +34,16 @@ trait HandlesTransformation
         return $script;
     }
 
-    public function toSingleSection(string $section) : static {
+    public function trimmed() : static {
         $script = new Script();
         $script->withParams($this->parameters());
-        foreach ($this->sections as $sourceSection) {
-            $script->section($section)->appendMessages($sourceSection->messages());
+        foreach ($this->sections as $section) {
+            $trimmed = $section->trimmed();
+            if ($trimmed->isEmpty()) {
+                continue;
+            }
+            $script->appendSection($trimmed);
         }
-        return $script;
-    }
-
-    public function toSingleMessage(string $separator = "\n") : static {
-        $script = new Script();
-        $script->withParams($this->parameters());
-        $script->appendSection(new Section('messages'));
-        $script->section('messages')->appendMessage(
-            new Message('user', $this->toString($separator))
-        );
         return $script;
     }
 }

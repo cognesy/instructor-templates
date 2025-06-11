@@ -1,14 +1,14 @@
 <?php
 
-namespace Cognesy\Template\Data;
+namespace Cognesy\Template\Config;
 
 use Cognesy\Template\Enums\FrontMatterFormat;
 use Cognesy\Template\Enums\TemplateEngineType;
-use Cognesy\Utils\Settings;
-use InvalidArgumentException;
 
 class TemplateEngineConfig
 {
+    public const CONFIG_GROUP = 'prompt';
+
     public function __construct(
         public TemplateEngineType $templateEngine = TemplateEngineType::Twig,
         public string             $resourcePath = '',
@@ -18,19 +18,6 @@ class TemplateEngineConfig
         public FrontMatterFormat  $frontMatterFormat = FrontMatterFormat::Yaml,
         public array              $metadata = [],
     ) {}
-
-    public static function load(string $library) : TemplateEngineConfig {
-        if (!Settings::has('prompt', "libraries.$library")) {
-            throw new InvalidArgumentException("Unknown prompt library: $library");
-        }
-        return new TemplateEngineConfig(
-            templateEngine: TemplateEngineType::from(Settings::get('prompt', "libraries.$library.templateEngine")),
-            resourcePath: Settings::get('prompt', "libraries.$library.resourcePath"),
-            cachePath: Settings::get('prompt', "libraries.$library.cachePath"),
-            extension: Settings::get('prompt', "libraries.$library.extension"),
-            metadata: Settings::get('prompt', "libraries.$library.metadata", []),
-        );
-    }
 
     public static function twig(string $resourcePath = '', string $cachePath = '') : TemplateEngineConfig {
         $cachePath = $cachePath ?: '/tmp/instructor/twig';
@@ -59,6 +46,34 @@ class TemplateEngineConfig
             resourcePath: $resourcePath,
             cachePath: $cachePath,
             extension: '.tpl',
+        );
+    }
+
+    public static function group() : string {
+        return self::CONFIG_GROUP;
+    }
+
+    public function toArray() : array {
+        return [
+            'templateEngine' => $this->templateEngine->value,
+            'resourcePath' => $this->resourcePath,
+            'cachePath' => $this->cachePath,
+            'extension' => $this->extension,
+            'frontMatterTags' => $this->frontMatterTags,
+            'frontMatterFormat' => $this->frontMatterFormat->value,
+            'metadata' => $this->metadata,
+        ];
+    }
+
+    public static function fromArray(array $data) : TemplateEngineConfig {
+        return new TemplateEngineConfig(
+            templateEngine: TemplateEngineType::from($data['templateEngine']),
+            resourcePath: $data['resourcePath'] ?? '',
+            cachePath: $data['cachePath'] ?? '',
+            extension: $data['extension'] ?? 'twig',
+            frontMatterTags: $data['frontMatterTags'] ?? [],
+            frontMatterFormat: FrontMatterFormat::from($data['frontMatterFormat'] ?? FrontMatterFormat::Yaml->value),
+            metadata: $data['metadata'] ?? [],
         );
     }
 }

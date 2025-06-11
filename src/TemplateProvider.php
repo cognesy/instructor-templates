@@ -2,33 +2,37 @@
 
 namespace Cognesy\Template;
 
+use Cognesy\Config\ConfigPresets;
+use Cognesy\Config\Contracts\CanProvideConfig;
+use Cognesy\Template\Config\TemplateEngineConfig;
 use Cognesy\Template\Contracts\CanHandleTemplate;
-use Cognesy\Template\Data\TemplateEngineConfig;
 use Cognesy\Template\Drivers\ArrowpipeDriver;
 use Cognesy\Template\Drivers\BladeDriver;
 use Cognesy\Template\Drivers\TwigDriver;
 use Cognesy\Template\Enums\TemplateEngineType;
-use Cognesy\Utils\Settings;
 use InvalidArgumentException;
 
-class TemplateLibrary
+class TemplateProvider
 {
     private CanHandleTemplate $driver;
     private TemplateEngineConfig $config;
+    private ConfigPresets $presets;
 
     public function __construct(
-        string               $library = '',
+        string                $preset = '',
         ?TemplateEngineConfig $config = null,
         ?CanHandleTemplate    $driver = null,
+        ?CanProvideConfig $configProvider = null
     ) {
-        $this->config = $config ?? TemplateEngineConfig::load(
-            library: $library ?: Settings::get('prompt', "defaultLibrary")
-        );
+        $this->presets = ConfigPresets::using($configProvider)->for(TemplateEngineConfig::group());
+        $data = $this->presets->getOrDefault($preset);
+        $this->config = $config ?? TemplateEngineConfig::fromArray($data);
         $this->driver = $driver ?? $this->makeDriver($this->config);
     }
 
-    public function get(string $library): self {
-        $this->config = TemplateEngineConfig::load($library);
+    public function get(string $preset): self {
+        $data = $this->presets->getOrDefault($preset);
+        $this->config = TemplateEngineConfig::fromArray($data);
         $this->driver = $this->makeDriver($this->config);
         return $this;
     }

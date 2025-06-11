@@ -2,8 +2,9 @@
 
 namespace Cognesy\Template;
 
+use Cognesy\Template\Config\TemplateEngineConfig;
 use Cognesy\Template\Contracts\CanHandleTemplate;
-use Cognesy\Template\Data\TemplateEngineConfig;
+use Cognesy\Template\Data\TemplateInfo;
 use Cognesy\Template\Script\Script;
 use Cognesy\Utils\Messages\Message;
 use Cognesy\Utils\Messages\Messages;
@@ -16,7 +17,7 @@ class Template
 {
     const DSN_SEPARATOR = ':';
 
-    private TemplateLibrary $library;
+    private TemplateProvider $provider;
     private TemplateInfo $templateInfo;
 
     private string $templateContent;
@@ -25,13 +26,13 @@ class Template
     private $tags = ['chat', 'message', 'content', 'section'];
 
     public function __construct(
-        string               $path = '',
-        string               $library = '',
+        string                $path = '',
+        string                $preset = '',
         ?TemplateEngineConfig $config = null,
         ?CanHandleTemplate    $driver = null,
     ) {
-        $this->library = new TemplateLibrary($library, $config, $driver);
-        $this->templateContent = $path ? $this->library->loadTemplate($path) : '';
+        $this->provider = new TemplateProvider($preset, $config, $driver);
+        $this->templateContent = $path ? $this->provider->loadTemplate($path) : '';
     }
 
     public static function twig() : self {
@@ -53,8 +54,8 @@ class Template
         };
     }
 
-    public static function using(string $library) : static {
-        return new self(library: $library);
+    public static function using(string $preset) : static {
+        return new self(preset: $preset);
     }
 
     public static function text(string $pathOrDsn, array $variables) : string {
@@ -73,21 +74,21 @@ class Template
         if (count($parts) !== 2) {
             throw new InvalidArgumentException("Invalid DSN: `$dsn` - failed to parse");
         }
-        return new self(path: $parts[1], library: $parts[0]);
+        return new self(path: $parts[1], preset: $parts[0]);
     }
 
-    public function withLibrary(string $library) : self {
-        $this->library->get($library);
+    public function withPreset(string $preset) : self {
+        $this->provider->get($preset);
         return $this;
     }
 
     public function withConfig(TemplateEngineConfig $config) : self {
-        $this->library->withConfig($config);
+        $this->provider->withConfig($config);
         return $this;
     }
 
     public function withDriver(CanHandleTemplate $driver) : self {
-        $this->library->withDriver($driver);
+        $this->provider->withDriver($driver);
         return $this;
     }
 
@@ -96,14 +97,14 @@ class Template
     }
 
     public function withTemplate(string $path) : self {
-        $this->templateContent = $this->library->loadTemplate($path);
-        $this->templateInfo = new TemplateInfo($this->templateContent, $this->library->config());
+        $this->templateContent = $this->provider->loadTemplate($path);
+        $this->templateInfo = new TemplateInfo($this->templateContent, $this->provider->config());
         return $this;
     }
 
     public function withTemplateContent(string $content) : self {
         $this->templateContent = $content;
-        $this->templateInfo = new TemplateInfo($this->templateContent, $this->library->config());
+        $this->templateInfo = new TemplateInfo($this->templateContent, $this->provider->config());
         return $this;
     }
 
@@ -138,7 +139,7 @@ class Template
     }
 
     public function config() : TemplateEngineConfig {
-        return $this->library->config();
+        return $this->provider->config();
     }
 
     public function params() : array {
@@ -150,7 +151,7 @@ class Template
     }
 
     public function variables() : array {
-        return $this->library->getVariableNames($this->templateContent);
+        return $this->provider->getVariableNames($this->templateContent);
     }
 
     public function info() : TemplateInfo {
@@ -164,41 +165,33 @@ class Template
         return $this->validateVariables($infoVars, $templateVars, $valueKeys);
     }
 
-    public function renderMessage(Message|array $message) : array {
-        $array = match(true) {
-            $message instanceof Message => $message->toArray(),
-            default => $message,
-        };
-        $content = $array['content'];
-        if (is_array($content)) {
-            $subsections = [];
-            foreach ($content as $key => $item) {
-                if ($item['type'] === 'text') {
-                    $item['text'] = $this->library->renderString($item['text'], $this->variableValues);
-                }
-                $subsections[] = $item;
+    public function renderMessage(Message $message) : Message {
+        $newMessage = $message->clone();
+        $newMessage->removeContent();
+        foreach($message->contentParts() as $part) {
+            $newPart = $part->clone();
+            if ($part->isTextPart()) {
+                $renderedValue = $this->provider->renderString($part->toString(), $this->variableValues);
+                $newPart->set('text', $renderedValue);
             }
-            $content = $subsections;
-        } else {
-            $content = $this->library->renderString($content, $this->variableValues);
+            $newMessage->addContentPart($newPart);
         }
-        $array['content'] = $content;
-        return $array;
+        return $newMessage;
     }
 
-    public function renderMessages(array|Messages $messages) : array {
-        $output = [];
-        foreach ($messages as $message) {
-            $output[] = $this->renderMessage($message);
+    public function renderMessages(Messages $messages) : Messages {
+        $newMessages = new Messages();
+        foreach ($messages->each() as $message) {
+            $newMessages->appendMessage($this->renderMessage($message));
         }
-        return $output;
+        return $newMessages;
     }
 
     // INTERNAL ///////////////////////////////////////////////////
 
     private function rendered() : string {
         if (!isset($this->rendered)) {
-            $rendered = $this->library->renderString($this->templateContent, $this->variableValues);
+            $rendered = $this->provider->renderString($this->templateContent, $this->variableValues);
             $this->rendered = $rendered;
         }
         return $this->rendered;
