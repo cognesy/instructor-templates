@@ -6,7 +6,6 @@ use Cognesy\Messages\ContentPart;
 use Cognesy\Messages\Message;
 use Cognesy\Messages\Messages;
 use Cognesy\Messages\MessageStore\MessageStore;
-use Cognesy\Messages\MessageStore\Section;
 use Cognesy\Template\Config\TemplateEngineConfig;
 use Cognesy\Template\Contracts\CanHandleTemplate;
 use Cognesy\Template\Data\TemplateInfo;
@@ -171,7 +170,7 @@ class Template
         $newMessage = new Message(
             role: $message->role(),
             name: $message->name(),
-            metadata: $message->metadata()
+            metadata: $message->metadata()->toArray()
         );
         $parts = [];
         foreach($message->contentParts() as $part) {
@@ -240,15 +239,15 @@ class Template
         $currentSectionName = 'messages';
         
         // Ensure default section exists
-        if (!$store->hasSection($currentSectionName)) {
-            $store = $store->appendSection(new Section($currentSectionName));
+        if (!$store->section($currentSectionName)->exists()) {
+            $store = $store->section($currentSectionName)->setMessages(Messages::empty());
         }
         
         foreach ($xml->children() as $element) {
             if ($element->tag() === 'section') {
                 $currentSectionName = $element->attribute('name') ?? 'messages';
-                if (!$store->hasSection($currentSectionName)) {
-                    $store = $store->appendSection(new Section($currentSectionName));
+                if (!$store->section($currentSectionName)->exists()) {
+                    $store = $store->section($currentSectionName)->setMessages(Messages::empty());
                 }
                 continue;
             }
@@ -264,7 +263,7 @@ class Template
                 }
             );
             
-            $store = $store->appendMessageToSection($currentSectionName, $message);
+            $store = $store->section($currentSectionName)->appendMessages($message);
         }
         return $store;
     }
