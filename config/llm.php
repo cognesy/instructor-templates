@@ -127,13 +127,10 @@ return [
         ],
         'huggingface' => [
             'driver' => 'huggingface',
-            'apiUrl' => 'https://router.huggingface.co/{providerId}/v1',
+            'apiUrl' => 'https://router.huggingface.co/v1',
             'apiKey' => Env::get('HUGGINGFACE_API_KEY', ''),
             'endpoint' => '/chat/completions',
-            'metadata' => [
-                'providerId' => 'hf-inference/models/microsoft/phi-4',
-            ],
-            'model' => 'microsoft/phi-4',
+            'model' => 'openai/gpt-oss-20b:fireworks-ai',
             'maxTokens' => 1024,
             'contextLength' => 32_000,
             'maxOutputLength' => 4096,

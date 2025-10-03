@@ -11,7 +11,7 @@ class ArrowpipeDriver implements CanHandleTemplate
 {
     private string $baseDir;
     private string $extension;
-    private $clearUnknownParams = false;
+    private bool $clearUnknownParams = false;
 
     public function __construct(
         private TemplateEngineConfig $config,
@@ -20,11 +20,13 @@ class ArrowpipeDriver implements CanHandleTemplate
         $this->extension = $this->config->extension;
     }
 
+    #[\Override]
     public function renderFile(string $path, array $parameters = []): string {
         $content = $this->getTemplateContent($path);
         return $this->renderString($content, $parameters);
     }
 
+    #[\Override]
     public function renderString(string $content, array $parameters = []): string {
         $template = new StringTemplate(
             parameters: $parameters,
@@ -33,14 +35,20 @@ class ArrowpipeDriver implements CanHandleTemplate
         return $template->renderString($content);
     }
 
+    #[\Override]
     public function getTemplateContent(string $path): string {
         $filePath = $this->baseDir . $path . $this->extension;
         if (!file_exists($filePath)) {
             throw new \InvalidArgumentException("Template file not found: $filePath");
         }
-        return file_get_contents($filePath);
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            throw new \RuntimeException("Failed to read template file: $filePath");
+        }
+        return $content;
     }
 
+    #[\Override]
     public function getVariableNames(string $content): array {
         $template = new StringTemplate(
             parameters: [],
