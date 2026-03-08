@@ -48,10 +48,10 @@ changelog:
 # Output targets
 output:
   mintlify:
-    target: './docs-build'
+    target: './builds/docs-build'
     source_index: './docs/mint.json'
   mkdocs:
-    target: './docs-mkdocs'
+    target: './builds/docs-mkdocs'
     template: './docs/mkdocs.yml.template'
 
 # LLM-friendly documentation (llms.txt standard)
